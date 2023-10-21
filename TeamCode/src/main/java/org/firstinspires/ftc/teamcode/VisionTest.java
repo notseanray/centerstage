@@ -41,8 +41,8 @@ public class VisionTest extends LinearOpMode {
             telemetry.addData("Color: ", ColorTest.getColor());
             telemetry.update();
         }
+        camera.closeCameraDevice();
 
-        waitForStart();
 
 //        while(opModeIsActive() && !isStopRequested()){
 //            Mat color = new Mat();

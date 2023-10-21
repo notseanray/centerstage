@@ -13,10 +13,13 @@ public class MecanumDrive extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         // Declare our motors
         // Make sure your ID's match your configuration
-        DcMotor frontLeftMotor = hardwareMap.dcMotor.get("LeftFront");
-        DcMotor backLeftMotor = hardwareMap.dcMotor.get("LeftBack");
-        DcMotor frontRightMotor = hardwareMap.dcMotor.get("RightFront");
-        DcMotor backRightMotor = hardwareMap.dcMotor.get("RightBack");
+        DcMotor frontLeftMotor = hardwareMap.dcMotor.get("motor_ch_3");
+        DcMotor backLeftMotor = hardwareMap.dcMotor.get("motor_ch_2");
+        DcMotor frontRightMotor = hardwareMap.dcMotor.get("motor_eh_0");
+        DcMotor backRightMotor = hardwareMap.dcMotor.get("motor_ch_1");
+
+        DcMotor liftLeft = hardwareMap.dcMotor.get("motor_eh_3");
+        DcMotor liftRight = hardwareMap.dcMotor.get("motor_eh_2");
 
         // Reverse the right side motors. This may be wrong for your setup.
         // If your robot moves backwards when commanded to go forwards,
@@ -41,17 +44,29 @@ public class MecanumDrive extends LinearOpMode {
         if (isStopRequested()) return;
 
         while (opModeIsActive()) {
+            liftLeft.setPower(gamepad1.left_trigger);
+            liftRight.setPower(gamepad1.right_trigger);
+            // TODO deadzone variable
+            double left_trigger = gamepad1.left_trigger;
+            double right_trigger = gamepad1.right_trigger;
+            if (left_trigger > 0.05) {
+                liftRight.setPower(-left_trigger);
+                liftLeft.setPower(left_trigger);
+            } else if (right_trigger > 0.05) {
+                liftRight.setPower(right_trigger);
+                liftLeft.setPower(-right_trigger);
+            } else {
+                liftLeft.setPower(0);
+                liftRight.setPower(0);
+            }
             double y = -gamepad1.right_stick_y; // Remember, Y stick value is reversed
             double x = gamepad1.right_stick_x;
             double rx = gamepad1.left_stick_x;
 //            System.out.println(y);
-
-            // This button choice was made so that it is hard to hit on accident,
-            // it can be freely changed based on preference.
-            // The equivalent button is start on Xbox-style controllers.
-            if (gamepad1.options) {
+            if (gamepad1.y) {
                 imu.resetYaw();
             }
+            // TODO airplane
 
             double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
 

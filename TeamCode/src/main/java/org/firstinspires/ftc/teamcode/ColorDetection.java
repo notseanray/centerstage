@@ -14,146 +14,168 @@ public class ColorDetection extends OpenCvPipeline {
     public enum ParkingPosition {
         LEFT,
         CENTER,
-        RIGHT
+        RIGHT,
+        NONE
     }
 
 
 
 
-    private volatile ParkingPosition position = ParkingPosition.LEFT;
+    private ParkingPosition position = ParkingPosition.NONE;
 
     @Override
     public Mat processFrame(Mat input) {
 
         Mat img = input;
+        int leftX = 2;
+        int leftY = 180;
+        int leftWidth = 100;
+        int leftHeight = 90;
 
-        Rect sec1 = new Rect(200 / 2, 180 /1, 200 / 2, 180 / 2);
-        Rect sec2 = new Rect(600 / 2, 180 / 1, 200 / 2, 180 / 2);
-        Rect sec3 = new Rect(1000 / 2, 180 / 1, 200 / 2, 180 / 2);
+        int centerX = 300;
+        int centerY = 180;
+        int centerWidth = 60;
+        int centerHeight = 60;
 
-        Mat sec1MAT = new Mat(img, sec1);
-        Mat sec2MAT = new Mat(img, sec2);
-        Mat sec3MAT = new Mat(img, sec3);
+        int rightX = 548;
+        int rightY = 180;
+        int rightWidth = 90;
+        int rightHeight = 90;
 
+        Rect left = new Rect(leftX , leftY, leftWidth, leftHeight);
+        Rect center = new Rect(centerX, centerY, centerWidth, centerHeight);
+        Rect right = new Rect(rightX, rightY, rightWidth, rightHeight);
 
-
-        Scalar sec1Scalar = Core.mean(sec1MAT);
-        Scalar sec2Scalar = Core.mean(sec2MAT);
-        Scalar sec3Scalar = Core.mean(sec3MAT);
-
-
-        Scalar ColorToMatch = new Scalar(0, 0, 255);
-        double Sec1AvgDist = Math.abs(ColorToMatch.val[0] - sec1Scalar.val[0]) + Math.abs(ColorToMatch.val[1] - sec1Scalar.val[1]) + Math.abs(ColorToMatch.val[2] - sec1Scalar.val[2]);
-        double Sec2AvgDist = (Math.abs(ColorToMatch.val[0] - sec2Scalar.val[0]) + Math.abs(ColorToMatch.val[1] - sec2Scalar.val[1]) + Math.abs(ColorToMatch.val[2] - sec2Scalar.val[2]));
-        double Sec3AvgDist = (Math.abs(ColorToMatch.val[0] - sec3Scalar.val[0]) + Math.abs(ColorToMatch.val[1] - sec3Scalar.val[1]) + Math.abs(ColorToMatch.val[2] - sec3Scalar.val[2]));
+        Mat leftMAT = new Mat(img, left);
+        Mat centerMAT = new Mat(img, center);
+        Mat rightMAT= new Mat(img, right);
 
 
-        Point sec1top = new Point(
-                200 / 2,
-                180 / 1
+
+        Scalar leftScalar = Core.mean(leftMAT);
+        Scalar centerScalar = Core.mean(centerMAT);
+        Scalar rightScalar = Core.mean(rightMAT);
+
+
+        Scalar ColorToMatch = new Scalar(255, 0, 0);
+//        double leftChannelDistance = Math.abs(ColorToMatch.val[0] - leftScalar.val[0]) + ColorToMatch.val[1] - leftScalar.val[1] + ColorToMatch.val[2] - leftScalar.val[2];
+//        double centerChannelDistance = ColorToMatch.val[0] - centerScalar.val[0] + ColorToMatch.val[1] - centerScalar.val[1] + ColorToMatch.val[2] - centerScalar.val[2];
+//        double rightChannelDistance = ColorToMatch.val[0] - rightScalar.val[0] + ColorToMatch.val[1] - rightScalar.val[1] + ColorToMatch.val[2] - rightScalar.val[2];
+        double maxLeft = Math.min(leftScalar.val[0], Math.min(leftScalar.val[1], leftScalar.val[2]));
+        double maxCenter = Math.min(centerScalar.val[0], Math.min(centerScalar.val[1], centerScalar.val[2]));
+        double maxRight = Math.min(rightScalar.val[0], Math.min(rightScalar.val[1], rightScalar.val[2]));
+        // normalize to unit vector, then dotproduct
+        double leftChannelDistance = ColorToMatch.val[0] * leftScalar.val[0] / maxLeft + ColorToMatch.val[1] * leftScalar.val[1] / maxLeft + ColorToMatch.val[2] * leftScalar.val[2] / maxLeft;
+        double centerChannelDistance = ColorToMatch.val[0] * centerScalar.val[0] / maxCenter + ColorToMatch.val[1] * centerScalar.val[1] / maxCenter + ColorToMatch.val[2] * centerScalar.val[2] / maxCenter;
+        double rightChannelDistance = ColorToMatch.val[0] * rightScalar.val[0] / maxRight + ColorToMatch.val[1] * rightScalar.val[1] / maxRight + ColorToMatch.val[2] * rightScalar.val[2] / maxRight;
+
+
+
+        Point leftTop = new Point(
+                leftX,
+                leftY
         );
-        Point sec1bot = new Point(
-                400 / 2,
-                360 / 1
+        Point leftBottom = new Point(
+                leftX + leftWidth,
+                leftY + leftHeight
         );
-        Point sec2top = new Point(
-                600 / 2,
-                180 / 1
+        Point centerTop = new Point(
+                centerX,
+                centerY
         );
-        Point sec2bot = new Point(
-                800 / 2,
-                360 / 1
+        Point centerBottom = new Point(
+                centerX + centerWidth,
+                centerY + centerHeight
         );
-        Point sec3top = new Point(
-                1000 / 2,
-                180 / 1
+        Point rightTop = new Point(
+                rightX,
+                rightY
         );
-        Point sec3bot = new Point(
-                1200 / 2,
-                360 / 1
+        Point rightBottom = new Point(
+                rightX + rightWidth,
+                rightY + rightHeight
         );
 
-
-        if (Sec1AvgDist < Sec2AvgDist && Sec1AvgDist < Sec3AvgDist) {
-            System.out.println("1");
+        double maxDistance = Math.max(leftChannelDistance, Math.max(centerChannelDistance, rightChannelDistance));
+        if (leftChannelDistance == maxDistance) {
             position = ParkingPosition.LEFT;
             Imgproc.rectangle(
                     img,
-                    sec1top,
-                    sec1bot,
-                    new Scalar(sec1Scalar.val[0], sec1Scalar.val[1], sec1Scalar.val[2]),
+                    leftTop,
+                    leftBottom,
+                    new Scalar(leftScalar.val[0], leftScalar.val[1], leftScalar.val[2]),
                     10
 
             );
             Imgproc.rectangle(
                     img,
-                    sec2top,
-                    sec2bot,
-                    new Scalar(sec2Scalar.val[0], sec2Scalar.val[1], sec2Scalar.val[2]),
+                    centerTop,
+                    centerBottom,
+                    new Scalar(centerScalar.val[0], centerScalar.val[1], centerScalar.val[2]),
                     2
 
             );
             Imgproc.rectangle(
                     img,
-                    sec3top,
-                    sec3bot,
-                    new Scalar(sec3Scalar.val[0], sec3Scalar.val[1], sec3Scalar.val[2]),
+                    rightTop,
+                    rightBottom,
+                    new Scalar(rightScalar.val[0], rightScalar.val[1], rightScalar.val[2]),
                     2
 
             );
 
-        } else if (Sec2AvgDist < Sec3AvgDist) {
+        } else if (centerChannelDistance == maxDistance) {
             position = ParkingPosition.CENTER;
             System.out.println("2");
             Imgproc.rectangle(
                     img,
-                    sec2top,
-                    sec2bot,
-                    new Scalar(sec2Scalar.val[0], sec2Scalar.val[1], sec2Scalar.val[2]),
+                    centerTop,
+                    centerBottom,
+                    new Scalar(centerScalar.val[0], centerScalar.val[1], centerScalar.val[2]),
                     10
 
             );
             Imgproc.rectangle(
                     img,
-                    sec3top,
-                    sec3bot,
-                    new Scalar(sec3Scalar.val[0], sec3Scalar.val[1], sec3Scalar.val[2]),
+                    rightTop,
+                    rightBottom,
+                    new Scalar(rightScalar.val[0], rightScalar.val[1], rightScalar.val[2]),
                     2
 
             );
             Imgproc.rectangle(
                     img,
-                    sec1top,
-                    sec1bot,
-                    new Scalar(sec1Scalar.val[0], sec1Scalar.val[1], sec1Scalar.val[2]),
+                    leftTop,
+                    rightBottom,
+                    new Scalar(leftScalar.val[0], leftScalar.val[1], leftScalar.val[2]),
                     2
 
             );
 
-        } else {
+        } else if (rightChannelDistance == maxDistance) {
             position = ParkingPosition.RIGHT;
             System.out.println("3");
             Imgproc.rectangle(
                     img,
-                    sec3top,
-                    sec3bot,
-                    new Scalar(sec3Scalar.val[0], sec3Scalar.val[1], sec3Scalar.val[2]),
+                    rightTop,
+                    rightBottom,
+                    new Scalar(rightScalar.val[0], rightScalar.val[1], rightScalar.val[2]),
                     10
 
             );
             Imgproc.rectangle(
                     img,
-                    sec1top,
-                    sec1bot,
-                    new Scalar(sec1Scalar.val[0], sec1Scalar.val[1], sec1Scalar.val[2]),
+                    leftTop,
+                    leftBottom,
+                    new Scalar(leftScalar.val[0], leftScalar.val[1], leftScalar.val[2]),
                     2
 
             );
             Imgproc.rectangle(
                     img,
-                    sec2top,
-                    sec2bot,
-                    new Scalar(sec2Scalar.val[0], sec2Scalar.val[1], sec2Scalar.val[2]),
+                    centerTop,
+                    centerBottom,
+                    new Scalar(centerScalar.val[0], centerScalar.val[1], centerScalar.val[2]),
                     2
 
             );

@@ -23,21 +23,83 @@ public Scalar sec1Scalar = new Scalar(0,0,0);
     public Mat processFrame(Mat input) {
 
         Mat img = input;
+        int leftX = 50;
+        int leftY = 180;
+        int leftWidth = 100;
+        int leftHeight = 90;
+
+        int centerX = 300;
+        int centerY = 180;
+        int centerWidth = 100;
+        int centerHeight = 90;
+
+        int rightX = 540;
+        int rightY = 180;
+        int rightWidth = 100;
+        int rightHeight = 90;
+
+        Rect left = new Rect(leftX , leftY, leftWidth, leftHeight);
+        Rect center = new Rect(centerX, centerY, centerWidth, centerHeight);
+        Rect right = new Rect(rightX, rightY, rightWidth, rightHeight);
+
+        Mat leftMAT = new Mat(img, left);
+        Mat centerMAT = new Mat(img, center);
+        Mat rightMAT= new Mat(img, right);
 
 
-        Rect sec1 = new Rect(50, 50, 200, 200);
-        Point sec1top = new Point(50, 50);
-        Point sec1bot = new Point(250, 250);
+
+        Scalar leftScalar = Core.mean(leftMAT);
+        Scalar centerScalar = Core.mean(centerMAT);
+        Scalar rightScalar = Core.mean(rightMAT);
 
 
-        Mat sec1MAT = new Mat(img, sec1);
-        sec1Scalar = Core.mean(sec1MAT);
+        Point leftTop = new Point(
+                leftX,
+                leftY
+        );
+        Point leftBottom = new Point(
+                leftX + leftWidth,
+                leftY + leftHeight
+        );
+        Point centerTop = new Point(
+                centerX,
+                centerY
+        );
+        Point centerBottom = new Point(
+                centerX + centerWidth,
+                centerY + centerHeight
+        );
+        Point rightTop = new Point(
+                rightX,
+                rightY
+        );
+        Point rightBottom = new Point(
+                rightX + rightWidth,
+                rightY + rightHeight
+        );
+
         Imgproc.rectangle(
                 img,
-                sec1top,
-                sec1bot,
-                sec1Scalar,
-                6
+                rightTop,
+                rightBottom,
+                new Scalar(rightScalar.val[0], rightScalar.val[1], rightScalar.val[2]),
+                10
+
+        );
+        Imgproc.rectangle(
+                img,
+                leftTop,
+                leftBottom,
+                new Scalar(leftScalar.val[0], leftScalar.val[1], leftScalar.val[2]),
+                2
+
+        );
+        Imgproc.rectangle(
+                img,
+                centerTop,
+                centerBottom,
+                new Scalar(centerScalar.val[0], centerScalar.val[1], centerScalar.val[2]),
+                2
 
         );
 
