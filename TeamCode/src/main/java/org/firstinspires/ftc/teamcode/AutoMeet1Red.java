@@ -225,6 +225,8 @@ public class AutoMeet1Red extends LinearOpMode {
         waitForStart();
 
         imu.resetYaw();
+
+        EncoderFB(1.6,1.6,1.6,1.6);
 //        if (position == ColorDetection.ParkingPosition.LEFT) {
 //            DESIRED_TAG_ID = 4;
 //            EncoderFB(1.6, 1.6, 1.6, 1.6);
@@ -289,7 +291,7 @@ public class AutoMeet1Red extends LinearOpMode {
         DESIRED_TAG_ID = 2;
         detectTag(imu);
 //        IMUTurn(0, imu);
-        EncoderFB(0.8, 0.8, 0.8, 0.8);
+        EncoderFB(0.4, 0.4, 0.4, 0.4);
         raiseLift(5);
         sleep(500);
         grabber.setPosition(0.6);
@@ -297,6 +299,7 @@ public class AutoMeet1Red extends LinearOpMode {
         grabber.setPosition(0.7);
         sleep(1000);
         lowerLift(5);
+        EncoderFB(-1.2, 1.2, 1.2, -1.2);
 
 //        EncoderFB(2, 2, 2, 2);
 //
