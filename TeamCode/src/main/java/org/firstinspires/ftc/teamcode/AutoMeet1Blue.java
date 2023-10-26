@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode;
 
-import android.util.SparseArray;
-
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -10,16 +8,16 @@ import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-import org.firstinspires.ftc.vision.apriltag.AprilTagPoseFtc;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.openftc.easyopencv.OpenCvCamera;
 import org.openftc.easyopencv.OpenCvCameraFactory;
+import org.openftc.easyopencv.OpenCvCameraRotation;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -58,23 +56,23 @@ import java.util.concurrent.TimeUnit;
  */
 
 @Autonomous
-public class AutoMeet1Red extends LinearOpMode {
+public class AutoMeet1Blue extends LinearOpMode {
 
 
     private String webcamName = "Webcam 1";
     // Adjust these numbers to suit your robot.
-    final double DESIRED_DISTANCE = 15.0; //  this is how close the camera should get to the target (inches)
+    final double DESIRED_DISTANCE = 14.0; //  this is how close the camera should get to the target (inches)
 
     //  Set the GAIN constants to control the relationship between the measured position error, and how much power is
     //  applied to the drive motors to correct the error.
     //  Drive = Error * Gain    Make these values smaller for smoother control, or larger for a more aggressive response.
-    final double SPEED_GAIN  =  0.025  ;   //  Forward Speed Control "Gain". eg: Ramp up to 50% power at a 25 inch error.   (0.50 / 25.0)
-    final double STRAFE_GAIN =  0.02 ;   //  Strafe Speed Control "Gain".  eg: Ramp up to 25% power at a 25 degree Yaw error.   (0.25 / 25.0)
-    final double TURN_GAIN   =  0.02  ;   //  Turn Control "Gain".  eg: Ramp up to 25% power at a 25 degree error. (0.25 / 25.0)
+    final double SPEED_GAIN  =  0.02  ;   //  Forward Speed Control "Gain". eg: Ramp up to 50% power at a 25 inch error.   (0.50 / 25.0)
+    final double STRAFE_GAIN =  0.015 ;   //  Strafe Speed Control "Gain".  eg: Ramp up to 25% power at a 25 degree Yaw error.   (0.25 / 25.0)
+    final double TURN_GAIN   =  0.01  ;   //  Turn Control "Gain".  eg: Ramp up to 25% power at a 25 degree error. (0.25 / 25.0)
 
-    final double MAX_AUTO_SPEED = 0.5;   //  Clip the approach speed to this max value (adjust for your robot)
-    final double MAX_AUTO_STRAFE= 0.5;   //  Clip the approach speed to this max value (adjust for your robot)
-    final double MAX_AUTO_TURN  = 0.3;   //  Clip the turn speed to this max value (adjust for your robot)
+    final double MAX_AUTO_SPEED = 0.4;   //  Clip the approach speed to this max value (adjust for your robot)
+    final double MAX_AUTO_STRAFE= 0.4;   //  Clip the approach speed to this max value (adjust for your robot)
+    final double MAX_AUTO_TURN  = 0.2;   //  Clip the turn speed to this max value (adjust for your robot)
 
     private DcMotor LeftFront   = null;  //  Used to control the left front drive wheel
     private DcMotor RightFront  = null;  //  Used to control the right front drive wheel
@@ -105,35 +103,29 @@ public class AutoMeet1Red extends LinearOpMode {
     static final double COUNTS_PER_ROT = 384.5;
     // 12"/circumfrence of wheel * COUNTS_PER_ROT
     static final double COUNTS_PER_TILE = 12.0 / (Math.PI * (96.0 / 25.4)) * COUNTS_PER_ROT;
+    static final int COUNTS_PER_LIFT_INCH = 1;
 
-    static final double COUNTS_PER_ROT_312 = 537.7;
-    static final double COUNTS_PER_LIFT_INCH = 25.4 / ((2.0 / 3.0) * Math.PI * 27) * COUNTS_PER_ROT_312 ;
-
-    public void raiseLift(double parallelInches) {
-        int target = (int) (COUNTS_PER_LIFT_INCH * parallelInches);
-        liftLeft.setTargetPosition(target);
-        liftRight.setTargetPosition(target);
-        liftLeft.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        liftRight.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        liftLeft.setPower(0.4);
-        liftRight.setPower(0.4);
-        while (liftLeft.isBusy() || liftRight.isBusy()) {
-            telemetry.addData("lift up", liftLeft.getCurrentPosition());
+    public void raiseLift(int sec) {
+        int seconds = 0;
+        while (seconds < sec) {
+            liftLeft.setPower(0.4);
+            liftRight.setPower(0.4);
+            seconds++;
+            sleep(1000);
         }
-        liftLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        liftRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         liftLeft.setPower(0);
         liftRight.setPower(0);
     }
-    public void lowerLift(int parallelInches) {
-        int target = (int) (COUNTS_PER_LIFT_INCH * parallelInches);
-        target *= 0.9;
-        liftLeft.setTargetPosition(liftLeft.getCurrentPosition() - target);
-        liftRight.setTargetPosition(liftRight.getCurrentPosition() - target);
-        liftLeft.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        liftRight.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        liftLeft.setPower(0.4);
-        liftRight.setPower(0.4);
+    public void lowerLift(int sec) {
+        int seconds = 0;
+        while (seconds < sec) {
+            liftLeft.setPower(-0.35);
+            liftRight.setPower(-0.35);
+            seconds++;
+            sleep(1000);
+        }
+        liftLeft.setPower(0);
+        liftRight.setPower(0);
     }
     @Override
     public void runOpMode() {
@@ -150,8 +142,6 @@ public class AutoMeet1Red extends LinearOpMode {
         liftLeft.setDirection(DcMotor.Direction.REVERSE);
         liftRight = hardwareMap.dcMotor.get("motor_eh_2");
 
-        liftLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        liftRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // When run, this OpMode should start both motors driving forward. So adjust these two lines based on your first test drive.
         // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
@@ -159,7 +149,7 @@ public class AutoMeet1Red extends LinearOpMode {
         RightBack.setDirection(DcMotor.Direction.FORWARD);
         LeftFront.setDirection(DcMotor.Direction.REVERSE);
         LeftBack.setDirection(DcMotor.Direction.REVERSE);
-        ColorDetection colorDetection;
+        ColorDetectionBlue colorDetectionBlue;
 
         Servo grabber = hardwareMap.get(Servo.class, "grabber_servo");
         Servo plane = hardwareMap.get(Servo.class, "plane");
@@ -184,119 +174,109 @@ public class AutoMeet1Red extends LinearOpMode {
         camera = OpenCvCameraFactory.getInstance().createWebcam(hardwareMap.get(WebcamName.class, webcamName), cameraMonitorViewId);
 
         System.out.println("color");
-        colorDetection = new ColorDetection();
+        colorDetectionBlue = new ColorDetectionBlue();
         System.out.println("color pipeline");
-//        camera.setPipeline(colorDetection);
-//
-//
-//        camera.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener() {
-//            @Override
-//            public void onOpened() {
-//                camera.startStreaming(640, 360, OpenCvCameraRotation.UPRIGHT);
-//            }
-//
-//            @Override
-//            public void onError(int errorCode) {
-//            }
-//        });
+        camera.setPipeline(colorDetectionBlue);
 
-        ColorDetection.ParkingPosition position = colorDetection.getPosition();
+
+        camera.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener() {
+            @Override
+            public void onOpened() {
+                camera.startStreaming(640, 360, OpenCvCameraRotation.UPRIGHT);
+            }
+
+            @Override
+            public void onError(int errorCode) {
+            }
+        });
+
+        ColorDetectionBlue.ParkingPosition position = colorDetectionBlue.getPosition();
         System.out.println("parking");
 
-//        while (!isStarted()) {
-//            position = colorDetection.getPosition();
-//            telemetry.addData("Cube Position: ", String.valueOf(position));
-//            telemetry.update();
-//        }
+        while (!isStarted()) {
+            position = colorDetectionBlue.getPosition();
+            telemetry.addData("Cube Position: ", String.valueOf(position));
+            telemetry.update();
+        }
 
         grabber.setPosition(0);
 
-//        while (position == ColorDetection.ParkingPosition.NONE) {
-//            position = colorDetection.getPosition();
-//        }
+        while (position == ColorDetectionBlue.ParkingPosition.NONE) {
+            position = colorDetectionBlue.getPosition();
+        }
 
         // drop
         //close
-//        camera.closeCameraDevice();
-        System.out.println("april tag init");
-        initAprilTag();
-        if (USE_WEBCAM) setManualExposure(12, 250);
-        System.out.println("wait");
+        camera.closeCameraDevice();
         waitForStart();
 
         imu.resetYaw();
-//        if (position == ColorDetection.ParkingPosition.LEFT) {
-//            DESIRED_TAG_ID = 4;
-//            EncoderFB(1.6, 1.6, 1.6, 1.6);
-////                        EncoderTurn(30);
-//            IMUTurn(40, imu);
-//            EncoderFB(0.3, 0.3, 0.3, 0.3);
-//            EncoderFB(-0.7, -0.7, -0.7, -0.7);
-//            //   Lift(2);
-//            //   Lift(-2);
-//            IMUTurn(-80, imu);
-//            EncoderFB(3, 3, 3, 3);
-//            EncoderFB(-1.7, 1.7, 1.7, -1.7);
-//            EncoderFB(0.2, 0.2, 0.2, 0.2);
-//            raiseLift(1);
-//        } else if (colorDetection.getPosition() == ColorDetection.ParkingPosition.CENTER) {
-//            DESIRED_TAG_ID = 5;
-//            EncoderFB(2.5, 2.5, 2.5, 2.5);
-//            EncoderFB(-0.5, -0.5, -0.5, -0.5);
-//            IMUTurn(-80, imu);
-//            //  Lift(2);
-//            //drop
-//            //  Lift(-2);
-//            EncoderFB(1, 1, 1, 1);
-////        telemetry.addData("Initializing AprilTag Pipeline in Camera", 1);
-////        initAprilTag();
-////        setManualExposure(6, 250);  // Use low exposure time to reduce motion blur
-////        detectTag(imu);
-//            IMUTurn(-80, imu);
-//            raiseLift(1);
-//            EncoderFB(-0.3, 0.3, 0.3, -0.3);
-//            EncoderFB(2, 2, 2, 2);
-//        } else {
-//            DESIRED_TAG_ID = 6;
-//            EncoderFB(0.5, 0.5, 0.5, 0.5);
-//            IMUTurn(-17, imu);
-//            EncoderFB(1, 1, 1, 1);
-//            EncoderFB(-0.5, -0.5, -0.5, -0.5);
-//            //  Lift(2);
-//            //drop
-//            //  Lift(-2);
-//            IMUTurn(-80, imu);
-//            EncoderFB(1.5, 1.5, 1.5, 1.5);
-////        telemetry.addData("Initializing AprilTag Pipeline in Camera", 1);
-////        initAprilTag();
-////        setManualExposure(6, 250);  // Use low exposure time to reduce motion blur
-////        detectTag(imu);
-//            IMUTurn(-80, imu);
-//            EncoderFB(-0.8, 0.8, 0.8, -0.8);
-//            EncoderFB(1, 1, 1, 1);
-//        }
-//        sleep(1000);
-//        EncoderFB(-0.2, -0.2, -0.2, -0.2);
-//        if (position == ColorDetection.ParkingPosition.LEFT) {
-//            EncoderFB(2, -2, -2, 2);
-//        } else if (position == ColorDetection.ParkingPosition.CENTER) {
-//            EncoderFB(1.5, -1.5, -1.5, 1.5);
-//        } else {
-//            EncoderFB(1.2, -1.2, -1.2, 1.2);
-//        }
-//        lowerLift(1);
-//        EncoderFB(0.2, 0.2, 0.2, 0.2);
-        DESIRED_TAG_ID = 2;
-        detectTag(imu);
-//        IMUTurn(0, imu);
-        EncoderFB(0.8, 0.8, 0.8, 0.8);
-        raiseLift(5);
-        sleep(500);
+        if (position == ColorDetectionBlue.ParkingPosition.LEFT) {
+            DESIRED_TAG_ID = 4;
+            EncoderFB(0.5, 0.5, 0.5, 0.5);
+//                        EncoderTurn(30);
+            IMUTurn(35, imu);
+            EncoderFB(1.4, 1.4, 1.4, 1.4);
+            EncoderFB(-0.6, -0.6, -0.6, -0.6);
+            //   Lift(2);
+            //   Lift(-2);
+            IMUTurn(90, imu);
+            EncoderFB(2.4, 2.4, 2.4, 2.4);
+            EncoderFB(0.7, -0.7, -0.7, 0.7);
+            EncoderFB(0.5, 0.5, 0.5, 0.5);
+            raiseLift(2);
+        } else if (colorDetectionBlue.getPosition() == ColorDetectionBlue.ParkingPosition.CENTER) {
+            DESIRED_TAG_ID = 5;
+            EncoderFB(2.5, 2.5, 2.5, 2.5);
+            EncoderFB(-0.5, -0.5, -0.5, -0.5);
+            IMUTurn(80, imu);
+            //  Lift(2);
+            //drop
+            //  Lift(-2);
+            EncoderFB(1.2, 1.2, 1.2, 1.2);
+//        telemetry.addData("Initializing AprilTag Pipeline in Camera", 1);
+//        initAprilTag();
+//        setManualExposure(6, 250);  // Use low exposure time to reduce motion blur
+//        detectTag(imu);
+            IMUTurn(90, imu);
+            raiseLift(2);
+            //EncoderFB(-0.3, 0.3, 0.3, -0.3);
+            EncoderFB(2.3, 2.3, 2.3, 2.3);
+        } else {
+            DESIRED_TAG_ID = 6;
+            EncoderFB(1.6, 1.6, 1.6, 1.6);
+            IMUTurn(-40, imu);
+            EncoderFB(0.3, 0.3, 0.3, 0.3);
+            EncoderFB(-0.7, -0.7, -0.7, -0.7);
+            //  Lift(2);
+            //drop
+            //  Lift(-2);
+            IMUTurn(80, imu);
+            EncoderFB(1.5, 1.5, 1.5, 1.5);
+//        telemetry.addData("Initializing AprilTag Pipeline in Camera", 1);
+//        initAprilTag();
+//        setManualExposure(6, 250);  // Use low exposure time to reduce motion blur
+//        detectTag(imu);
+            IMUTurn(90, imu);
+            raiseLift(2);
+            EncoderFB(1.2, -1.2, -1.2, 1.2);
+            EncoderFB(1.6, 1.6, 1.6, 1.6);
+        }
         grabber.setPosition(0.6);
-        sleep(800);
+        sleep(1000);
         grabber.setPosition(0.7);
         sleep(1000);
-        lowerLift(5);
+        EncoderFB(-0.2, -0.2, -0.2, -0.2);
+        if (position == ColorDetectionBlue.ParkingPosition.LEFT) {
+            EncoderFB(-3, 3, 3, -3);
+        } else if (position == ColorDetectionBlue.ParkingPosition.CENTER) {
+            EncoderFB(-2.5, 2.5, 2.5, -2.5);
+        } else {
+            EncoderFB(-3.3, 3.3, 3.3, -3.3);
+        }
+        lowerLift(1);
+        EncoderFB(0.2, 0.2, 0.2, 0.2);
+
 
 //        EncoderFB(2, 2, 2, 2);
 //
@@ -324,11 +304,12 @@ public class AutoMeet1Red extends LinearOpMode {
      * Positive Yaw is counter-clockwise
      */
     public void detectTag(IMU imu) {
-        while (opModeIsActive()) {
-            targetFound = false;
-            desiredTag = null;
+        targetFound = false;
+        desiredTag = null;
+        boolean initalized = false;
 
-            // Step through the list of detected tags and look for a matching tag
+
+        while (opModeIsActive()) {
             List<AprilTagDetection> currentDetections = aprilTag.getDetections();
             for (AprilTagDetection detection : currentDetections) {
                 if ((detection.metadata != null) &&
@@ -340,39 +321,49 @@ public class AutoMeet1Red extends LinearOpMode {
                     telemetry.addData("Unknown Target", "Tag ID %d is not in TagLibrary\n", detection.id);
                 }
             }
-
-            // Tell the driver what we see, and what to do.
             if (targetFound) {
                 telemetry.addData("Target", "ID %d (%s)", desiredTag.id, desiredTag.metadata.name);
-                telemetry.addData("Range", "%5.1f inches", desiredTag.ftcPose.range);
-                telemetry.addData("Bearing", "%3.0f degrees", desiredTag.ftcPose.bearing);
-                telemetry.addData("Yaw", "%3.0f degrees", desiredTag.ftcPose.yaw);
-            }
+                telemetry.addData("Range",  "%5.1f inches", desiredTag.ftcPose.range);
+                telemetry.addData("Bearing","%3.0f degrees", desiredTag.ftcPose.bearing);
+                telemetry.addData("Yaw","%3.0f degrees", desiredTag.ftcPose.yaw);
 
-            // If Left Bumper is being pressed, AND we have found the desired target, Drive to target Automatically .
-            if (targetFound) {
+                initalized = true;
 
                 // Determine heading, range and Yaw (tag image rotation) error so we can use them to control the robot automatically.
                 double rangeError = (desiredTag.ftcPose.range - DESIRED_DISTANCE);
                 double headingError = desiredTag.ftcPose.bearing;
                 double yawError = desiredTag.ftcPose.yaw;
+                if (Math.abs(rangeError) < 5 && Math.abs(headingError) < 10 && Math.abs(yawError) < 10) {
+                    break;
+                }
+                // prevent weirdness, aka FIRST code is SHIT
+                if (Math.abs(Math.abs(imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES)) - 90) > 30) {
+                    break;
+                }
 
                 // Use the speed and turn "gains" to calculate how we want the robot to move.
                 drive = Range.clip(rangeError * SPEED_GAIN, -MAX_AUTO_SPEED, MAX_AUTO_SPEED);
                 turn = Range.clip(headingError * TURN_GAIN, -MAX_AUTO_TURN, MAX_AUTO_TURN);
                 strafe = Range.clip(-yawError * STRAFE_GAIN, -MAX_AUTO_STRAFE, MAX_AUTO_STRAFE);
-                if (yawError < 1 && headingError < 1 && rangeError < 0.5) {
-                    return;
-                }
 
                 telemetry.addData("Auto", "Drive %5.2f, Strafe %5.2f, Turn %5.2f ", drive, strafe, turn);
+                telemetry.update();
+                moveRobot(drive, strafe, turn);
+                sleep(10);
+            } else {
+                LeftFront.setPower(0);
+                RightFront.setPower(0);
+                LeftBack.setPower(0);
+                RightBack.setPower(0);
+                if (initalized) {
+                    break;
+                }
             }
-            telemetry.update();
-
-            // Apply desired axes motions to the drivetrain.
-            moveRobot(drive, strafe, turn);
-            sleep(10);
         }
+        LeftFront.setPower(0);
+        RightFront.setPower(0);
+        LeftBack.setPower(0);
+        RightBack.setPower(0);
     }
         public void moveRobot(double x, double y, double yaw) {
             // Calculate wheel powers.

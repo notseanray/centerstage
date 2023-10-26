@@ -5,12 +5,16 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.hardware.Servo;
+
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 @TeleOp(name="Mecanum", group="Drive Systems")
 public class MecanumDrive extends LinearOpMode {
+    final static double STICK_DEADZONE = 0.08;
     @Override
     public void runOpMode() throws InterruptedException {
+        Servo plane = hardwareMap.get(Servo.class, "plane");
         // Declare our motors
         // Make sure your ID's match your configuration
         DcMotor frontLeftMotor = hardwareMap.dcMotor.get("motor_ch_3");
@@ -62,11 +66,27 @@ public class MecanumDrive extends LinearOpMode {
             double y = -gamepad1.right_stick_y; // Remember, Y stick value is reversed
             double x = gamepad1.right_stick_x;
             double rx = gamepad1.left_stick_x;
+            if (y < STICK_DEADZONE) {
+                y = 0;
+            }
+            if (x < STICK_DEADZONE) {
+                x = 0;
+            }
+            if (rx < STICK_DEADZONE) {
+                rx = 0;
+            }
+            // TODO power curve for input
+
 //            System.out.println(y);
             if (gamepad1.y) {
                 imu.resetYaw();
             }
             // TODO airplane
+            if (gamepad1.x) {
+               plane.setPosition(0.8);
+            } else {
+                plane.setPosition(0);
+            }
 
             double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
 
