@@ -1,17 +1,20 @@
 package org.firstinspires.ftc.teamcode;
+import static android.os.SystemClock.sleep;
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
+import static org.firstinspires.ftc.teamcode.Util.setupIMU;
+
+import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.Servo;
-
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 @TeleOp(name="Mecanum", group="Drive Systems")
 public class MecanumDrive extends LinearOpMode {
     final static double STICK_DEADZONE = 0.08;
+    double angleOffset = 0;
     @Override
     public void runOpMode() throws InterruptedException {
         Servo plane = hardwareMap.get(Servo.class, "plane");
@@ -24,6 +27,32 @@ public class MecanumDrive extends LinearOpMode {
 
         DcMotor liftLeft = hardwareMap.dcMotor.get("motor_eh_3");
         DcMotor liftRight = hardwareMap.dcMotor.get("motor_eh_2");
+        CRServo intakeRight = hardwareMap.crservo.get("servo_5_ch");
+        CRServo intakeLeft = hardwareMap.crservo.get("servo_5_eh");
+        intakeLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        BNO055IMU imu = hardwareMap.get(BNO055IMU.class, "imu2");
+        byte AXIS_MAP_CONFIG_BYTE = 0x6; //This is what to write to the AXIS_MAP_CONFIG register to swap x and z axes
+        byte AXIS_MAP_SIGN_BYTE = 0x1; //This is what to write to the AXIS_MAP_SIGN register to negate the z axis
+
+//Need to be in CONFIG mode to write to registers
+        imu.write8(BNO055IMU.Register.OPR_MODE,BNO055IMU.SensorMode.CONFIG.bVal & 0x0F);
+
+        sleep(100); //Changing modes requires a delay before doing anything else
+
+//Write to the AXIS_MAP_CONFIG register
+        imu.write8(BNO055IMU.Register.AXIS_MAP_CONFIG,AXIS_MAP_CONFIG_BYTE & 0x0F);
+
+//Write to the AXIS_MAP_SIGN register
+        imu.write8(BNO055IMU.Register.AXIS_MAP_SIGN,AXIS_MAP_SIGN_BYTE & 0x0F);
+
+//Need to change back into the IMU mode to use the gyro
+        imu.write8(BNO055IMU.Register.OPR_MODE,BNO055IMU.SensorMode.IMU.bVal & 0x0F);
+
+        sleep(100); //Changing modes again requires a delay
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        // Without this, the REV Hub's orientation is assumed to be logo up / USB forward
+        imu.initialize(parameters);
 
         // Reverse the right side motors. This may be wrong for your setup.
         // If your robot moves backwards when commanded to go forwards,
@@ -34,15 +63,7 @@ public class MecanumDrive extends LinearOpMode {
         frontLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         backLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        // Retrieve the IMU from the hardware map
-        IMU imu = hardwareMap.get(IMU.class, "imu2");
         // Adjust the orientation parameters to match your robot
-        IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
-                RevHubOrientationOnRobot.LogoFacingDirection.RIGHT,
-                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD));
-        // Without this, the REV Hub's orientation is assumed to be logo up / USB forward
-        imu.initialize(parameters);
-
         waitForStart();
 
         if (isStopRequested()) return;
@@ -66,20 +87,21 @@ public class MecanumDrive extends LinearOpMode {
             double y = -gamepad1.right_stick_y; // Remember, Y stick value is reversed
             double x = gamepad1.right_stick_x;
             double rx = gamepad1.left_stick_x;
-            if (y < STICK_DEADZONE) {
+            if (Math.abs(y) < STICK_DEADZONE) {
                 y = 0;
             }
-            if (x < STICK_DEADZONE) {
+            if (Math.abs(x) < STICK_DEADZONE) {
                 x = 0;
             }
-            if (rx < STICK_DEADZONE) {
+            if (Math.abs(rx) < STICK_DEADZONE) {
                 rx = 0;
             }
+            double botHeading = imu.getAngularOrientation().firstAngle - angleOffset;
             // TODO power curve for input
 
 //            System.out.println(y);
             if (gamepad1.y) {
-                imu.resetYaw();
+                angleOffset = botHeading;
             }
             // TODO airplane
             if (gamepad1.x) {
@@ -87,8 +109,20 @@ public class MecanumDrive extends LinearOpMode {
             } else {
                 plane.setPosition(0);
             }
+            if (gamepad1.right_bumper) {
+                intakeRight.setPower(0.8);
+                intakeLeft.setPower(0.8);
+            }
 
-            double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+            if (gamepad1.left_bumper) {
+                intakeRight.setPower(-0.8);
+                intakeLeft.setPower(-0.8);
+            }
+            if (!gamepad1.left_bumper && !gamepad1.right_bumper) {
+                intakeRight.setPower(0);
+                intakeLeft.setPower(0);
+            }
+
 
             // Rotate the movement direction counter to the bot's rotation
             double rotX = x * Math.cos(-botHeading) - y * Math.sin(-botHeading);

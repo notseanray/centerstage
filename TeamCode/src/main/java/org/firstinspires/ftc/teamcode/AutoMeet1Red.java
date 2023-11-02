@@ -1,22 +1,19 @@
 package org.firstinspires.ftc.teamcode;
 
-import android.util.SparseArray;
-
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-import org.firstinspires.ftc.vision.apriltag.AprilTagPoseFtc;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.openftc.easyopencv.OpenCvCamera;
 import org.openftc.easyopencv.OpenCvCameraFactory;
@@ -63,14 +60,14 @@ public class AutoMeet1Red extends LinearOpMode {
 
     private String webcamName = "Webcam 1";
     // Adjust these numbers to suit your robot.
-    final double DESIRED_DISTANCE = 15.0; //  this is how close the camera should get to the target (inches)
+    final double DESIRED_DISTANCE = 16.0; //  this is how close the camera should get to the target (inches)
 
     //  Set the GAIN constants to control the relationship between the measured position error, and how much power is
     //  applied to the drive motors to correct the error.
     //  Drive = Error * Gain    Make these values smaller for smoother control, or larger for a more aggressive response.
-    final double SPEED_GAIN  =  0.025  ;   //  Forward Speed Control "Gain". eg: Ramp up to 50% power at a 25 inch error.   (0.50 / 25.0)
-    final double STRAFE_GAIN =  0.02 ;   //  Strafe Speed Control "Gain".  eg: Ramp up to 25% power at a 25 degree Yaw error.   (0.25 / 25.0)
-    final double TURN_GAIN   =  0.02  ;   //  Turn Control "Gain".  eg: Ramp up to 25% power at a 25 degree error. (0.25 / 25.0)
+    final double SPEED_GAIN  =  0.05  ;   //  Forward Speed Control "Gain". eg: Ramp up to 50% power at a 25 inch error.   (0.50 / 25.0)
+    final double STRAFE_GAIN =  0.05 ;   //  Strafe Speed Control "Gain".  eg: Ramp up to 25% power at a 25 degree Yaw error.   (0.25 / 25.0)
+    final double TURN_GAIN   =  0.01  ;   //  Turn Control "Gain".  eg: Ramp up to 25% power at a 25 degree error. (0.25 / 25.0)
 
     final double MAX_AUTO_SPEED = 0.5;   //  Clip the approach speed to this max value (adjust for your robot)
     final double MAX_AUTO_STRAFE= 0.5;   //  Clip the approach speed to this max value (adjust for your robot)
@@ -161,19 +158,37 @@ public class AutoMeet1Red extends LinearOpMode {
         LeftBack.setDirection(DcMotor.Direction.REVERSE);
         ColorDetection colorDetection;
 
+        CRServo intakeRight = hardwareMap.crservo.get("servo_5_ch");
+        CRServo intakeLeft = hardwareMap.crservo.get("servo_5_eh");
+        intakeLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+
         Servo grabber = hardwareMap.get(Servo.class, "grabber_servo");
         Servo plane = hardwareMap.get(Servo.class, "plane");
 
         // Retrieve the IMU from the hardware map
-        IMU imu = hardwareMap.get(IMU.class, "imu2");
-        // Adjust the orientation parameters to match your robot
-        IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
-                RevHubOrientationOnRobot.LogoFacingDirection.RIGHT,
-                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD));
+        BNO055IMU imu = hardwareMap.get(BNO055IMU.class, "imu2");
+        byte AXIS_MAP_CONFIG_BYTE = 0x6; //This is what to write to the AXIS_MAP_CONFIG register to swap x and z axes
+        byte AXIS_MAP_SIGN_BYTE = 0x1; //This is what to write to the AXIS_MAP_SIGN register to negate the z axis
+
+//Need to be in CONFIG mode to write to registers
+        imu.write8(BNO055IMU.Register.OPR_MODE,BNO055IMU.SensorMode.CONFIG.bVal & 0x0F);
+
+        sleep(100); //Changing modes requires a delay before doing anything else
+
+//Write to the AXIS_MAP_CONFIG register
+        imu.write8(BNO055IMU.Register.AXIS_MAP_CONFIG,AXIS_MAP_CONFIG_BYTE & 0x0F);
+
+//Write to the AXIS_MAP_SIGN register
+        imu.write8(BNO055IMU.Register.AXIS_MAP_SIGN,AXIS_MAP_SIGN_BYTE & 0x0F);
+
+//Need to change back into the IMU mode to use the gyro
+        imu.write8(BNO055IMU.Register.OPR_MODE,BNO055IMU.SensorMode.IMU.bVal & 0x0F);
+
+        sleep(100); //Changing modes again requires a delay
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
         // Without this, the REV Hub's orientation is assumed to be logo up / USB forward
         imu.initialize(parameters);
-
-
+        // Adjust the orientation parameters to match your robot
         // Wait for driver to press start
         telemetry.addData("Camera preview on/off", "3 dots, Camera Stream");
         telemetry.addData(">", "Touch Play to start OpMode");
@@ -201,7 +216,6 @@ public class AutoMeet1Red extends LinearOpMode {
 //        });
 
         ColorDetection.ParkingPosition position = colorDetection.getPosition();
-        System.out.println("parking");
 
 //        while (!isStarted()) {
 //            position = colorDetection.getPosition();
@@ -218,80 +232,62 @@ public class AutoMeet1Red extends LinearOpMode {
         // drop
         //close
 //        camera.closeCameraDevice();
-        System.out.println("april tag init");
         initAprilTag();
         if (USE_WEBCAM) setManualExposure(12, 250);
-        System.out.println("wait");
         waitForStart();
 
-        imu.resetYaw();
+//START OF NEW CODE THAT I DID ON 10/27 -JACK
+        //b/c we dont know how the intake release for purple pixel is distance wise, some of the values wont be perfect.
+        //^^^ Each of these values ill denote w a * and at this line is where we'd need to add drive code
+        //Drives to center of tile in all tape region
+       EncoderFB(2.4,2.4,2.4,2.4);
 
-        EncoderFB(1.6,1.6,1.6,1.6);
+
 //        if (position == ColorDetection.ParkingPosition.LEFT) {
-//            DESIRED_TAG_ID = 4;
-//            EncoderFB(1.6, 1.6, 1.6, 1.6);
-////                        EncoderTurn(30);
-//            IMUTurn(40, imu);
-//            EncoderFB(0.3, 0.3, 0.3, 0.3);
-//            EncoderFB(-0.7, -0.7, -0.7, -0.7);
-//            //   Lift(2);
-//            //   Lift(-2);
-//            IMUTurn(-80, imu);
-//            EncoderFB(3, 3, 3, 3);
-//            EncoderFB(-1.7, 1.7, 1.7, -1.7);
-//            EncoderFB(0.2, 0.2, 0.2, 0.2);
-//            raiseLift(1);
-//        } else if (colorDetection.getPosition() == ColorDetection.ParkingPosition.CENTER) {
-//            DESIRED_TAG_ID = 5;
-//            EncoderFB(2.5, 2.5, 2.5, 2.5);
-//            EncoderFB(-0.5, -0.5, -0.5, -0.5);
-//            IMUTurn(-80, imu);
-//            //  Lift(2);
-//            //drop
-//            //  Lift(-2);
-//            EncoderFB(1, 1, 1, 1);
-////        telemetry.addData("Initializing AprilTag Pipeline in Camera", 1);
-////        initAprilTag();
-////        setManualExposure(6, 250);  // Use low exposure time to reduce motion blur
-////        detectTag(imu);
-//            IMUTurn(-80, imu);
-//            raiseLift(1);
-//            EncoderFB(-0.3, 0.3, 0.3, -0.3);
-//            EncoderFB(2, 2, 2, 2);
-//        } else {
-//            DESIRED_TAG_ID = 6;
-//            EncoderFB(0.5, 0.5, 0.5, 0.5);
-//            IMUTurn(-17, imu);
-//            EncoderFB(1, 1, 1, 1);
-//            EncoderFB(-0.5, -0.5, -0.5, -0.5);
-//            //  Lift(2);
-//            //drop
-//            //  Lift(-2);
-//            IMUTurn(-80, imu);
-//            EncoderFB(1.5, 1.5, 1.5, 1.5);
-////        telemetry.addData("Initializing AprilTag Pipeline in Camera", 1);
-////        initAprilTag();
-////        setManualExposure(6, 250);  // Use low exposure time to reduce motion blur
-////        detectTag(imu);
-//            IMUTurn(-80, imu);
-//            EncoderFB(-0.8, 0.8, 0.8, -0.8);
-//            EncoderFB(1, 1, 1, 1);
-//        }
-//        sleep(1000);
-//        EncoderFB(-0.2, -0.2, -0.2, -0.2);
-//        if (position == ColorDetection.ParkingPosition.LEFT) {
-//            EncoderFB(2, -2, -2, 2);
-//        } else if (position == ColorDetection.ParkingPosition.CENTER) {
-//            EncoderFB(1.5, -1.5, -1.5, 1.5);
-//        } else {
-//            EncoderFB(1.2, -1.2, -1.2, 1.2);
-//        }
-//        lowerLift(1);
-//        EncoderFB(0.2, 0.2, 0.2, 0.2);
-        DESIRED_TAG_ID = 2;
-        detectTag(imu);
+        if (true) {
+            //Turns to put intake facing tape bc we are reversing intake to drop purple pixel
+            //*
+              IMUTurn(-90, imu);
+              intakeRight.setPower(-0.4);
+              intakeLeft.setPower(-0.4);
+              // Drives 1 tile further away from origin to line up all autos at same position after color detection
+              EncoderFB(-1.8,1.8,1.8,-1.8);
+           } else if (colorDetection.getPosition() == ColorDetection.ParkingPosition.CENTER) {
+            // Drives more forward to line up intake with center tape
+            //*
+            EncoderFB(1.6, 1.6, 1.6, 1.6);
+            intakeRight.setPower(-0.4);
+            intakeLeft.setPower(-0.4);
+            // Turns to line up all autos at end of color detection
+            IMUTurn(-90, imu);
+        } else {
+            // Lines up intake with right tape DOESNT HIT BAR
+            //*
+            IMUTurn(90, imu);
+            intakeRight.setPower(-0.4);
+            intakeLeft.setPower(-0.4);
+            // Strafes to get into position to line up with other if statements
+            EncoderFB(1.6,-1.6,-1.6,1.6);
+            // Turns robot around to finalize position in which all color detections line up at the same spot
+            IMUTurn(-90,imu);
+        }
+        intakeRight.setPower(0);
+        intakeLeft.setPower(0);
+        IMUTurn(90,imu);
+        // Drives forward under center truss
+        EncoderFB(3,3,3,3);
+        IMUTurn(90,imu);
+        EncoderFB(3,3,3,3);
+        IMUTurn(90,imu);
+        EncoderFB(-1.8,1.8,1.8,-1.8);
+        // Turns to face board and puts every april tag in frame
+
+//This is all of the code you did for driving to april tag
+        DESIRED_TAG_ID = 6;
+        detectTag();
+        IMUTurn(90,imu);
 //        IMUTurn(0, imu);
-        EncoderFB(0.4, 0.4, 0.4, 0.4);
+        EncoderFB(0.6, 0.6, 0.6, 0.6);
         raiseLift(5);
         sleep(500);
         grabber.setPosition(0.6);
@@ -299,17 +295,22 @@ public class AutoMeet1Red extends LinearOpMode {
         grabber.setPosition(0.7);
         sleep(1000);
         lowerLift(5);
-        EncoderFB(-1.2, 1.2, 1.2, -1.2);
+        EncoderFB(1.2, -1.2,-1.2, 1.2);
+//To Cycle 2 white pixels, we would need to have code similar to below (only 1, 0, -1 used)
+        //EncoderFB(0,-1,-1,0);
+        //EncoderFB(-1,-1,-1,-1);
+        //EncoderFB(-1,0,0,-1);
+        //DESIRED_TAG_ID = (Whatever the tag ID is);
+        //detectTag(imu);
+        //intake
+        //EncoderFB(1,0,0,1);
+        //EncoderFB(1,1,1,1);
+        //IMUTurn(-22);
+        //DESIRED_TAG_ID = (the scanned tag for randomization);
+        //and then we'd repeat the code you wrote
+        //This doesn't seem feasible for this comp and we should get the 45 points working first before we start to cycle
 
-//        EncoderFB(2, 2, 2, 2);
-//
-//        // Lift(6);
-//        //drop
-//        // Lift(-6);
-//        IMUTurn(90, imu);
-//        EncoderFB(1,1,1,1);
-//        IMUTurn(-90, imu);
-//        EncoderFB(1,1,1,1);
+
         while (opModeIsActive()) {
             telemetry.addData("Auto Done", 1);
             telemetry.update();
@@ -326,7 +327,9 @@ public class AutoMeet1Red extends LinearOpMode {
      * <p>
      * Positive Yaw is counter-clockwise
      */
-    public void detectTag(IMU imu) {
+    public void detectTag() {
+        boolean targetFound = false;
+        AprilTagDetection desiredTag = null;
         while (opModeIsActive()) {
             targetFound = false;
             desiredTag = null;
@@ -340,35 +343,44 @@ public class AutoMeet1Red extends LinearOpMode {
                     desiredTag = detection;
                     break;  // don't look any further.
                 } else {
-                    telemetry.addData("Unknown Target", "Tag ID %d is not in TagLibrary\n", detection.id);
+                    telemetry.addData("unknown target", "tag id %d is not in taglibrary\n", detection.id);
                 }
             }
 
-            // Tell the driver what we see, and what to do.
+            // tell the driver what we see, and what to do.
             if (targetFound) {
-                telemetry.addData("Target", "ID %d (%s)", desiredTag.id, desiredTag.metadata.name);
-                telemetry.addData("Range", "%5.1f inches", desiredTag.ftcPose.range);
-                telemetry.addData("Bearing", "%3.0f degrees", desiredTag.ftcPose.bearing);
-                telemetry.addData("Yaw", "%3.0f degrees", desiredTag.ftcPose.yaw);
+                telemetry.addData("target", "id %d (%s)", desiredTag.id, desiredTag.metadata.name);
+                telemetry.addData("range", "%5.1f inches", desiredTag.ftcPose.range);
+                telemetry.addData("bearing", "%3.0f degrees", desiredTag.ftcPose.bearing);
+                telemetry.addData("yaw", "%3.0f degrees", desiredTag.ftcPose.yaw);
             }
 
-            // If Left Bumper is being pressed, AND we have found the desired target, Drive to target Automatically .
+            // if left bumper is being pressed, and we have found the desired target, drive to target automatically .
             if (targetFound) {
 
-                // Determine heading, range and Yaw (tag image rotation) error so we can use them to control the robot automatically.
-                double rangeError = (desiredTag.ftcPose.range - DESIRED_DISTANCE);
-                double headingError = desiredTag.ftcPose.bearing;
-                double yawError = desiredTag.ftcPose.yaw;
+                // determine heading, range and yaw (tag image rotation) error so we can use them to control the robot automatically.
+                double rangeerror = (desiredTag.ftcPose.range - DESIRED_DISTANCE);
+                double headingerror = desiredTag.ftcPose.bearing;
+                double yawerror = desiredTag.ftcPose.yaw;
 
-                // Use the speed and turn "gains" to calculate how we want the robot to move.
-                drive = Range.clip(rangeError * SPEED_GAIN, -MAX_AUTO_SPEED, MAX_AUTO_SPEED);
-                turn = Range.clip(headingError * TURN_GAIN, -MAX_AUTO_TURN, MAX_AUTO_TURN);
-                strafe = Range.clip(-yawError * STRAFE_GAIN, -MAX_AUTO_STRAFE, MAX_AUTO_STRAFE);
-                if (yawError < 1 && headingError < 1 && rangeError < 0.5) {
+                // use the speed and turn "gains" to calculate how we want the robot to move.
+                drive = Range.clip(rangeerror * SPEED_GAIN, -MAX_AUTO_SPEED, MAX_AUTO_SPEED);
+                turn = Range.clip(headingerror * TURN_GAIN, -MAX_AUTO_TURN, MAX_AUTO_TURN);
+                strafe = Range.clip(-yawerror * STRAFE_GAIN, -MAX_AUTO_STRAFE, MAX_AUTO_SPEED);
+                if (drive < 0.05 && strafe < 0.05) {
+                    LeftFront.setPower(0);
+                    RightFront.setPower(0);
+                    LeftBack.setPower(0);
+                    RightBack.setPower(0);
                     return;
                 }
 
                 telemetry.addData("Auto", "Drive %5.2f, Strafe %5.2f, Turn %5.2f ", drive, strafe, turn);
+            } else {
+                LeftFront.setPower(0);
+                RightFront.setPower(0);
+                LeftBack.setPower(0);
+                RightBack.setPower(0);
             }
             telemetry.update();
 
@@ -495,12 +507,22 @@ public class AutoMeet1Red extends LinearOpMode {
         RightBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
     }
 
-    public void IMUTurn(double angle, IMU imu) {
+    public double toDeg(double angle) {
+            return angle * 180.0 / Math.PI;
+    }
+
+    public void IMUTurn(double angle, BNO055IMU imu) {
         double targetAngle = angle;
-        double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
-        while (Math.abs(Math.abs(botHeading) - Math.abs(targetAngle)) > 2.0) {
-            botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
-            double rx = Math.min(Math.max((((targetAngle - botHeading) / 180.0)), .2), 0.4);
+        double botHeading;
+        double angleDelta = 180;
+        while (angleDelta > 5) {
+            botHeading = toDeg(imu.getAngularOrientation().firstAngle);
+            if (targetAngle > botHeading) {
+                angleDelta = targetAngle - botHeading;
+            } else {
+                angleDelta = botHeading - targetAngle;
+            }
+            double rx = Math.min(Math.max(((angleDelta / 180.0)), .2), 0.5);
             telemetry.addData("Rotating, angle: ", botHeading);
             telemetry.addData("Rotating, target: ", targetAngle);
             telemetry.update();
