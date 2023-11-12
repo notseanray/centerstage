@@ -17,6 +17,9 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.openftc.easyopencv.OpenCvCamera;
 import org.openftc.easyopencv.OpenCvCameraFactory;
+import org.openftc.easyopencv.OpenCvCameraRotation;
+
+
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -101,7 +104,7 @@ public class AutoMeet1Red extends LinearOpMode {
     // Guess and Check this value
     static final double COUNTS_PER_ROT = 384.5;
     // 12"/circumfrence of wheel * COUNTS_PER_ROT
-    static final double COUNTS_PER_TILE = 12.0 / (Math.PI * (96.0 / 25.4)) * COUNTS_PER_ROT;
+    static final double COUNTS_PER_TILE = 12.0 / (Math.PI * (96.0 / 25.4)) * COUNTS_PER_ROT * (23.5 / 16.3);
 
     static final double COUNTS_PER_ROT_312 = 537.7;
     static final double COUNTS_PER_LIFT_INCH = 25.4 / ((2.0 / 3.0) * Math.PI * 27) * COUNTS_PER_ROT_312 ;
@@ -141,7 +144,9 @@ public class AutoMeet1Red extends LinearOpMode {
         LeftFront = hardwareMap.get(DcMotor.class, "motor_ch_3");
         RightFront = hardwareMap.get(DcMotor.class, "motor_eh_0");
         LeftBack = hardwareMap.get(DcMotor.class, "motor_ch_2");
-        RightBack = hardwareMap.get(DcMotor.class, "motor_ch_1");
+        RightBack = hardwareMap.get(DcMotor.class, "motor_ch_0");
+        Servo PixelHoldL = hardwareMap.get(Servo.class, "pixelHoldL");
+        Servo PixelHoldR = hardwareMap.get(Servo.class, "pixelHoldR");
 
         liftLeft = hardwareMap.dcMotor.get("motor_eh_3");
         liftLeft.setDirection(DcMotor.Direction.REVERSE);
@@ -162,8 +167,41 @@ public class AutoMeet1Red extends LinearOpMode {
         CRServo intakeLeft = hardwareMap.crservo.get("servo_5_eh");
         intakeLeft.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        Servo grabber = hardwareMap.get(Servo.class, "grabber_servo");
-        Servo plane = hardwareMap.get(Servo.class, "plane");
+
+
+        System.out.println("camera");
+        camera = OpenCvCameraFactory.getInstance().createWebcam(hardwareMap.get(WebcamName.class, webcamName), cameraMonitorViewId);
+
+        System.out.println("color");
+        colorDetection = new ColorDetection();
+        System.out.println("color pipeline");
+        camera.setPipeline(colorDetection);
+         camera.openCameraDevice();
+
+//
+        camera.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener() {
+            @Override
+            public void onOpened() {
+                camera.startStreaming(640, 360, OpenCvCameraRotation.UPRIGHT);
+            }
+
+            @Override
+            public void onError(int errorCode) {
+
+            }
+        });
+        ColorDetection.ParkingPosition position = colorDetection.getPosition();
+        while (!isStarted()) {
+            position = colorDetection.getPosition();
+            telemetry.addData("Cube Position: ", String.valueOf(position));
+            telemetry.update();
+        }
+
+
+
+
+//        Servo angleGrabberL = hardwareMap.get(Servo.class, "angleGrabberL");
+//        Servo angleGrabberR = hardwareMap.get(Servo.class, "angleGrabberR");
 
         // Retrieve the IMU from the hardware map
         BNO055IMU imu = hardwareMap.get(BNO055IMU.class, "imu2");
@@ -188,78 +226,55 @@ public class AutoMeet1Red extends LinearOpMode {
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
         // Without this, the REV Hub's orientation is assumed to be logo up / USB forward
         imu.initialize(parameters);
+
+
         // Adjust the orientation parameters to match your robot
         // Wait for driver to press start
-        telemetry.addData("Camera preview on/off", "3 dots, Camera Stream");
-        telemetry.addData(">", "Touch Play to start OpMode");
+
+
+
+         PixelHoldL.setPosition(.1);
+        while (position == ColorDetection.ParkingPosition.NONE) {
+            position = colorDetection.getPosition();
+        }
+
+        boolean red = colorDetection.isTargetColorRed();
+        telemetry.addData("red", red);
         telemetry.update();
-
-
-        System.out.println("camera");
-        camera = OpenCvCameraFactory.getInstance().createWebcam(hardwareMap.get(WebcamName.class, webcamName), cameraMonitorViewId);
-
-        System.out.println("color");
-        colorDetection = new ColorDetection();
-        System.out.println("color pipeline");
-//        camera.setPipeline(colorDetection);
-//
-//
-//        camera.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener() {
-//            @Override
-//            public void onOpened() {
-//                camera.startStreaming(640, 360, OpenCvCameraRotation.UPRIGHT);
-//            }
-//
-//            @Override
-//            public void onError(int errorCode) {
-//            }
-//        });
-
-        ColorDetection.ParkingPosition position = colorDetection.getPosition();
-
-//        while (!isStarted()) {
-//            position = colorDetection.getPosition();
-//            telemetry.addData("Cube Position: ", String.valueOf(position));
-//            telemetry.update();
-//        }
-
-        grabber.setPosition(0);
-
-//        while (position == ColorDetection.ParkingPosition.NONE) {
-//            position = colorDetection.getPosition();
-//        }
 
         // drop
         //close
-//        camera.closeCameraDevice();
+        camera.closeCameraDevice();
         initAprilTag();
-        if (USE_WEBCAM) setManualExposure(12, 250);
+        if (USE_WEBCAM) setManualExposure(10, 180);
+
         waitForStart();
+//        EncoderFB(1.0, 1.0, 1.0, 1.0);
 
 //START OF NEW CODE THAT I DID ON 10/27 -JACK
         //b/c we dont know how the intake release for purple pixel is distance wise, some of the values wont be perfect.
         //^^^ Each of these values ill denote w a * and at this line is where we'd need to add drive code
         //Drives to center of tile in all tape region
-       EncoderFB(2.4,2.4,2.4,2.4);
+       EncoderFB(1.5,1.5,1.5,1.5);
 
 
-//        if (position == ColorDetection.ParkingPosition.LEFT) {
-        if (true) {
+
+        if (position == ColorDetection.ParkingPosition.LEFT) {
             //Turns to put intake facing tape bc we are reversing intake to drop purple pixel
             //*
+
               IMUTurn(-90, imu);
               intakeRight.setPower(-0.4);
               intakeLeft.setPower(-0.4);
               // Drives 1 tile further away from origin to line up all autos at same position after color detection
-              EncoderFB(-1.8,1.8,1.8,-1.8);
-           } else if (colorDetection.getPosition() == ColorDetection.ParkingPosition.CENTER) {
+              EncoderFB(-1.6,1.6,1.6,-1.6);
+           } else if (colorDetection.getPosition()==ColorDetection.ParkingPosition.CENTER) {
             // Drives more forward to line up intake with center tape
             //*
-            EncoderFB(1.6, 1.6, 1.6, 1.6);
-            intakeRight.setPower(-0.4);
-            intakeLeft.setPower(-0.4);
-            // Turns to line up all autos at end of color detection
-            IMUTurn(-90, imu);
+                EncoderFB(1, 1, 1, 1);
+                intakeRight.setPower(-0.4);
+                intakeLeft.setPower(-0.4);
+                // Turns to line up all autos at end of color detection
         } else {
             // Lines up intake with right tape DOESNT HIT BAR
             //*
@@ -269,32 +284,33 @@ public class AutoMeet1Red extends LinearOpMode {
             // Strafes to get into position to line up with other if statements
             EncoderFB(1.6,-1.6,-1.6,1.6);
             // Turns robot around to finalize position in which all color detections line up at the same spot
-            IMUTurn(-90,imu);
         }
         intakeRight.setPower(0);
         intakeLeft.setPower(0);
         IMUTurn(90,imu);
-        // Drives forward under center truss
-        EncoderFB(3,3,3,3);
+//        // Drives forward under center truss
+        EncoderFB(2,2,2,2);
         IMUTurn(90,imu);
-        EncoderFB(3,3,3,3);
+        EncoderFB(2,2,2,2);
         IMUTurn(90,imu);
-        EncoderFB(-1.8,1.8,1.8,-1.8);
-        // Turns to face board and puts every april tag in frame
+        EncoderFB(-1.1,1.1,1.1,-1.1);
+//        // Turns to face board and puts every april tag in frame
 
-//This is all of the code you did for driving to april tag
-        DESIRED_TAG_ID = 6;
-        detectTag();
+        //detectTag();
         IMUTurn(90,imu);
 //        IMUTurn(0, imu);
-        EncoderFB(0.6, 0.6, 0.6, 0.6);
+        EncoderFB(0.2, 0.2, 0.2, 0.2);
+        correctTagDisplacement();
         raiseLift(5);
         sleep(500);
-        grabber.setPosition(0.6);
+//        angleGrabberL.setPosition(.9);
+//        angleGrabberR.setPosition(.1);
+        PixelHoldL.setPosition(0.2);
         sleep(800);
-        grabber.setPosition(0.7);
         sleep(1000);
         lowerLift(5);
+//        angleGrabberL.setPosition(1);
+//        angleGrabberR.setPosition(0);
         EncoderFB(1.2, -1.2,-1.2, 1.2);
 //To Cycle 2 white pixels, we would need to have code similar to below (only 1, 0, -1 used)
         //EncoderFB(0,-1,-1,0);
@@ -307,15 +323,52 @@ public class AutoMeet1Red extends LinearOpMode {
         //EncoderFB(1,1,1,1);
         //IMUTurn(-22);
         //DESIRED_TAG_ID = (the scanned tag for randomization);
-        //and then we'd repeat the code you wrote
-        //This doesn't seem feasible for this comp and we should get the 45 points working first before we start to cycle
 
 
         while (opModeIsActive()) {
             telemetry.addData("Auto Done", 1);
             telemetry.update();
-            grabber.setPosition(1);
         }
+    }
+
+    public void correctTagDisplacement() {
+        boolean targetFound = false;
+        DESIRED_TAG_ID = 6;
+        AprilTagDetection desiredTag = null;
+        while (opModeIsActive()) {
+            sleep(10);
+            System.out.println("testh3.5z");
+            // Step through the list of detected tags and look for a matching tag
+            List<AprilTagDetection> currentDetections = aprilTag.getDetections();
+            for (AprilTagDetection detection : currentDetections) {
+                System.out.println("detection + " + detection.id);
+                if ((detection.metadata != null) && (detection.id == DESIRED_TAG_ID)) {
+                    targetFound = true;
+                    telemetry.addData("status", "updating");
+                    telemetry.update();
+                    desiredTag = detection;
+                    break;  // don't look any further.
+                } else {
+                    telemetry.addData("unknown target", "tag id %d is not in taglibrary\n", detection.id);
+                }
+            }
+
+            // tell the driver what we see, and what to do.
+            if (targetFound) {
+                System.out.println("testh3.9z");
+                telemetry.addData("target", "id %d (%s)", desiredTag.id, desiredTag.metadata.name);
+                telemetry.addData("range", "%5.1f inches", desiredTag.ftcPose.range);
+                telemetry.addData("bearing", "%3.0f degrees", desiredTag.ftcPose.bearing);
+                telemetry.addData("yaw", "%3.0f degrees", desiredTag.ftcPose.yaw);
+                telemetry.update();
+                break;
+            }
+        }
+        double yawError = desiredTag.ftcPose.yaw / 24.0;
+        double rangeError = desiredTag.ftcPose.range / 17.0;
+        EncoderFB(yawError, -yawError, -yawError, yawError);
+        EncoderFB(rangeError,rangeError,rangeError,rangeError);
+        sleep(1000000);
     }
 
     /**
@@ -487,12 +540,12 @@ public class AutoMeet1Red extends LinearOpMode {
         RightFront.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         LeftFront.setMode(DcMotor.RunMode.RUN_TO_POSITION);
 
-        LeftFront.setPower(0.3);
-        LeftBack.setPower(0.3);
-        RightFront.setPower(0.3);
-        RightBack.setPower(0.3);
+        LeftFront.setPower(0.4);
+        LeftBack.setPower(0.4);
+        RightFront.setPower(0.4);
+        RightBack.setPower(0.4);
 
-        while (RightBack.isBusy() || RightFront.isBusy() || LeftBack.isBusy() || LeftFront.isBusy()) {
+        while (RightBack.isBusy() && RightFront.isBusy() && LeftBack.isBusy() && LeftFront.isBusy()) {
             telemetry.addData("Running to position", 1);
             telemetry.update();
         }
@@ -589,4 +642,11 @@ public class AutoMeet1Red extends LinearOpMode {
         RightBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
     }
+
+    private static final int BLUE_LEFT = 1;
+    private static final int BLUE_MIDDLE = 2;
+    private static final int BLUE_RIGHT = 3;
+    private static final int RED_LEFT = 4;
+    private static final int RED_MIDDLE = 5;
+    private static final int RED_RIGHT = 6;
 }

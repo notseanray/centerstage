@@ -15,6 +15,8 @@ import com.qualcomm.robotcore.hardware.Servo;
 public class MecanumDrive extends LinearOpMode {
     final static double STICK_DEADZONE = 0.08;
     double angleOffset = 0;
+    public double grabberLift =0;
+    public double planeAngleDegree=1;
     @Override
     public void runOpMode() throws InterruptedException {
         Servo plane = hardwareMap.get(Servo.class, "plane");
@@ -23,13 +25,21 @@ public class MecanumDrive extends LinearOpMode {
         DcMotor frontLeftMotor = hardwareMap.dcMotor.get("motor_ch_3");
         DcMotor backLeftMotor = hardwareMap.dcMotor.get("motor_ch_2");
         DcMotor frontRightMotor = hardwareMap.dcMotor.get("motor_eh_0");
-        DcMotor backRightMotor = hardwareMap.dcMotor.get("motor_ch_1");
+        DcMotor backRightMotor = hardwareMap.dcMotor.get("motor_ch_0");
 
         DcMotor liftLeft = hardwareMap.dcMotor.get("motor_eh_3");
         DcMotor liftRight = hardwareMap.dcMotor.get("motor_eh_2");
-        CRServo intakeRight = hardwareMap.crservo.get("servo_5_ch");
-        CRServo intakeLeft = hardwareMap.crservo.get("servo_5_eh");
-        intakeLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+//        CRServo intakeRight = hardwareMap.crservo.get("servo_5_ch");
+//        CRServo intakeLeft = hardwareMap.crservo.get("servo_5_eh");
+//        intakeLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        Servo PixelHoldL = hardwareMap.get(Servo.class, "servo_ch_0");
+        Servo PixelHoldR = hardwareMap.get(Servo.class, "servo_ch_1");
+
+        Servo PivotLeft = hardwareMap.get(Servo.class, "servo_ch_2");
+        Servo PivotRight = hardwareMap.get(Servo.class, "servo_ch_3");
+
+        Servo planeAngle = hardwareMap.get(Servo.class, "planeAngle");
 
         BNO055IMU imu = hardwareMap.get(BNO055IMU.class, "imu2");
         byte AXIS_MAP_CONFIG_BYTE = 0x6; //This is what to write to the AXIS_MAP_CONFIG register to swap x and z axes
@@ -104,25 +114,62 @@ public class MecanumDrive extends LinearOpMode {
                 angleOffset = botHeading;
             }
             // TODO airplane
-            if (gamepad1.x) {
+            if (gamepad1.right_bumper) {
                plane.setPosition(0.8);
             } else {
-                plane.setPosition(0);
+                plane.setPosition(.5);
             }
-            if (gamepad1.right_bumper) {
-                intakeRight.setPower(0.8);
-                intakeLeft.setPower(0.8);
-            }
+//            if (gamepad1.right_bumper) {
+//                intakeRight.setPower(0.8);
+//                intakeLeft.setPower(0.8);
+//            }
 
             if (gamepad1.left_bumper) {
-                intakeRight.setPower(-0.8);
-                intakeLeft.setPower(-0.8);
+//                intakeRight.setPower(-0.8);
+//                intakeLeft.setPower(-0.8);
             }
             if (!gamepad1.left_bumper && !gamepad1.right_bumper) {
-                intakeRight.setPower(0);
-                intakeLeft.setPower(0);
+//                intakeRight.setPower(0);
+//                intakeLeft.setPower(0);
             }
 
+            if(gamepad1.dpad_left){
+                PivotLeft.setPosition(0.15);
+                PivotRight.setPosition(0.15);
+            } else {
+                // the right servo is a 270 degree servo
+                PivotRight.setPosition(0.6 * (180.0 / 270.0));
+                // this is an axon
+                PivotLeft.setPosition(0.6);
+            }
+            if(gamepad1.dpad_right){
+                PixelHoldL.setPosition(0.16);
+                PixelHoldR.setPosition(0);
+            } else {
+                PixelHoldL.setPosition(0);
+                PixelHoldR.setPosition(0.16);
+            }
+//            if(gamepad1.dpad_up){
+//                PixelHoldR.setPosition(0.3);
+//            }
+//            if(gamepad1.dpad_down){
+//                PixelHoldR.setPosition(0.465);
+//            }
+
+
+          if(gamepad1.dpad_up) {
+                planeAngleDegree = planeAngleDegree - .01;
+                planeAngle.setPosition(planeAngleDegree);
+
+            }
+            else if(gamepad1.dpad_down) {
+                planeAngleDegree = planeAngleDegree + .01;
+                planeAngle.setPosition(planeAngleDegree);
+            }
+            if(gamepad1.dpad_left){
+                planeAngle.setPosition(1-.12);
+
+            }
 
             // Rotate the movement direction counter to the bot's rotation
             double rotX = x * Math.cos(-botHeading) - y * Math.sin(-botHeading);
@@ -133,12 +180,13 @@ public class MecanumDrive extends LinearOpMode {
             // Denominator is the largest motor power (absolute value) or 1
             // This ensures all the powers maintain the same ratio,
             // but only if at least one is out of the range [-1, 1]
-            double denominator = Math.max(Math.abs(rotY) + Math.abs(rotX) + Math.abs(rx), 1);
+           double denominator = Math.max(Math.abs(rotY) + Math.abs(rotX) + Math.abs(rx), 1);
             double frontLeftPower = (rotY + rotX + rx) / denominator;
             double backLeftPower = (rotY - rotX + rx) / denominator;
             double frontRightPower = (rotY - rotX - rx) / denominator;
             double backRightPower = (rotY + rotX - rx) / denominator;
             telemetry.addData("Rotating, angle: ", botHeading * (180.0 / Math.PI));
+            telemetry.addData("grabber angle lift", grabberLift);
             telemetry.update();
 
             frontLeftMotor.setPower(frontLeftPower);
